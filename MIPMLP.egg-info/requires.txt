@@ -1,0 +1,11 @@
+numpy>=1.24.3
+pandas>=1.3.4
+scipy>=1.5.0
+networkx>=2.5.1
+matplotlib
+scikit-learn
+plotly
+tqdm
+igraph
+pytorch-lightning>=2.1.0
+torch>=2.1.0
