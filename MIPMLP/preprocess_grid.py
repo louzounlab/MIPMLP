@@ -1,6 +1,3 @@
-# created by Yoel Jasner
-import re
-import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from sklearn import preprocessing
@@ -8,20 +5,35 @@ from collections import Counter
 from .distance_learning_func import distance_learning
 from sklearn.decomposition import PCA
 from sklearn.decomposition import FastICA
+
+
 taxonomy_col = 'taxonomy'
 min_letter_value = 'a'
 
 states = {1: "Creating otu And Mapping Files",
           2:"Perform taxonomy grouping",
-3:'Perform normalization',
-4:'dimension reduction',
-5:"plotting diversities"}
+          3:'Perform normalization',
+          4:'dimension reduction',
+          5:"plotting diversities"}
 
-def update_state(ip, position):
-    with open("./" + str(ip) + "/state.txt", "w+") as f:
-        f.write(str(position) + "\n" + states[position])
 
 def preprocess_data(data, dict_params: dict, map_file):
+    """
+    Main preprocessing function for microbiome OTU data.
+
+    Parameters:
+    - data: DataFrame of OTU counts
+    - dict_params: dictionary of preprocessing options
+    - map_file: mapping table with sample tags (can be None)
+
+    Returns:
+    - processed OTU DataFrame
+    - OTU DataFrame before PCA
+    - PCA object (if PCA applied)
+    - list of bacteria (features) used
+    - PCA configuration tuple
+    """
+    # Unpack preprocessing parameters from the user-defined dictionary
     taxonomy_level = int(dict_params['taxonomy_level'])
     preform_taxnomy_group = dict_params['taxnomy_group']
     eps_for_zeros = float(dict_params['epsilon'])
@@ -32,13 +44,13 @@ def preprocess_data(data, dict_params: dict, map_file):
     rare_bacteria_threshold = dict_params.get('rare_bacteria_threshold', None)
     pca = dict_params['pca']
 
-
-
+    # Convert data to numeric DataFrame and limit taxonomy to 7 levels
     as_data_frame = pd.DataFrame(data.T).apply(pd.to_numeric, errors='ignore').copy()  # data frame of OTUs
     as_data_frame = as_data_frame.fillna(0)
     as_data_frame.columns = [';'.join(str(i).split(';')[:7]) for i in as_data_frame.columns ]
 
-    #handling edge cases - droping viruese, unclastered bacterias, bacterias which are clustered with more than specie and unnamed bacterias
+    # Filter out non-bacterial or poorly classified entries-
+    # droping viruese, unclasstered bacterias, bacterias which are clustered with more than specie and unnamed bacterias
     indexes = as_data_frame[taxonomy_col]
     stay = []
     for i in range(len(indexes)):
@@ -48,23 +60,21 @@ def preprocess_data(data, dict_params: dict, map_file):
                 stay.append(i)
 
     as_data_frame = as_data_frame.iloc[stay,:]
-
-    # filling empty taxonomy levels
+    # Fill in missing taxonomy levels with default values (e.g., s__, g__)
     as_data_frame = fill_taxonomy(as_data_frame, tax_col=taxonomy_col)
-
-    # droping space from the taxonomy name
+    # Remove spaces from taxonomy names and set them as row indexes
     indexes = as_data_frame[taxonomy_col]
     new_indexes = []
+
     for i in range(len(indexes)):
         new_indexes.append(as_data_frame[taxonomy_col][i].replace(" ",""))
     as_data_frame[taxonomy_col] = new_indexes
     as_data_frame.index = new_indexes
 
-    # updating state - Performing taxonomy grouping
-
+    # Perform taxonomy grouping (mean, sum, or sub PCA) if requested
     if preform_taxnomy_group != '':
         as_data_frame = taxonomy_grouping(as_data_frame, preform_taxnomy_group, taxonomy_level)
-
+        # If no grouping is specified, drop taxonomy column and transpose
         # here the samples are columns
         as_data_frame = as_data_frame.T
     else:
@@ -74,59 +84,53 @@ def preprocess_data(data, dict_params: dict, map_file):
         except:
             pass
 
-    # remove highly correlated bacteria
+    # Remove features (bacteria) with high correlation
     if correlation_removal_threshold is not None:
         as_data_frame = dropHighCorr(as_data_frame, correlation_removal_threshold)
 
-    # drop bacterias with single values
+    # Remove bacteria that appear in too few samples
     if rare_bacteria_threshold is not None:
         as_data_frame = drop_rare_bacteria(as_data_frame, rare_bacteria_threshold)
 
+    # Apply normalization: log or relative abundance
     if preform_norm == 'log':
         as_data_frame = log_normalization(as_data_frame, eps_for_zeros)
-
-
+        # Optionally apply z-score normalization
         if preform_z_scoring != 'No':
             as_data_frame = z_score(as_data_frame, preform_z_scoring)
-
 
     elif preform_norm == 'relative':
         as_data_frame = row_normalization(as_data_frame)
         if relative_z == "z_after_relative":
             as_data_frame = z_score(as_data_frame, 'col')
 
+    # Store a copy of the data before PCA for optional use
     as_data_frame_b_pca = as_data_frame.copy()
     bacteria = as_data_frame.columns
+
+    # If using sub PCA, apply distance learning to generate features
     if preform_taxnomy_group == 'sub PCA':
-        # as_data_frame.columns = taxo_col
-        as_data_frame, _ = distance_learning(perform_distance=True, level=taxonomy_level,
-                                             preproccessed_data=as_data_frame, mapping_file=map_file)
+        as_data_frame, _ = distance_learning(perform_distance=True, level=taxonomy_level, preproccessed_data=as_data_frame, mapping_file=map_file)
         as_data_frame_b_pca = as_data_frame
         as_data_frame = fill_taxonomy(as_data_frame, tax_col='columns')
 
-    # as_data_frame.columns = [delete_empty_taxonomic_levels(i) for i in as_data_frame.columns]
-    #as_data_frame_b_pca.columns = [delete_empty_taxonomic_levels(i) for i in as_data_frame_b_pca.columns]
-
-
-    # updating state - performing pca
+    # Apply PCA if requested (dimensionality reduction)
     if pca[0] != 0:
         as_data_frame, pca_obj, pca = apply_pca(as_data_frame, n_components=pca[0], dim_red_type=pca[1])
     else:
         pca_obj = None
 
+    # Return all processed outputs for further use
     return as_data_frame, as_data_frame_b_pca, pca_obj, bacteria, pca
 
 
+# Normalize each sample's row to sum to 1 (relative abundance)
 def row_normalization(as_data_frame):
     as_data_frame = as_data_frame.div(as_data_frame.sum(axis=1), axis=0).fillna(0)
     return as_data_frame
 
 
-def drop_low_var(as_data_frame, threshold):
-    drop_list = [col for col in as_data_frame.columns if col != 'taxonomy' and threshold > np.var(as_data_frame[col])]
-    return as_data_frame.drop(columns=drop_list).T
-
-
+# Apply log10 normalization with epsilon to avoid log(0)
 def log_normalization(as_data_frame, eps_for_zeros):
     as_data_frame = as_data_frame.astype(float)
     as_data_frame += eps_for_zeros
@@ -134,6 +138,7 @@ def log_normalization(as_data_frame, eps_for_zeros):
     return as_data_frame
 
 
+# Apply z-score normalization across rows, columns, or both
 def z_score(as_data_frame, preform_z_scoring):
     if preform_z_scoring == 'row':
         # z-score on columns
@@ -148,23 +153,7 @@ def z_score(as_data_frame, preform_z_scoring):
     return as_data_frame
 
 
-def drop_bacteria(as_data_frame):
-    bacterias = as_data_frame.columns
-    bacterias_to_dump = []
-    for i, bact in enumerate(bacterias):
-        f = as_data_frame[bact]
-        num_of_different_values = set(f)
-        if len(num_of_different_values) < 2:
-            bacterias_to_dump.append(bact)
-    if len(bacterias_to_dump) != 0:
-        print("number of bacterias to dump before intersection: " + str(len(bacterias_to_dump)))
-        print("percent of bacterias to dump before intersection: " + str(
-            len(bacterias_to_dump) / len(bacterias) * 100) + "%")
-    else:
-        print("No bacteria with single value")
-    return as_data_frame.drop(columns=bacterias_to_dump)
-
-
+# Drop bacteria that are highly correlated with others beyond a threshold
 def dropHighCorr(data, threshold):
     corr = data.corr()
     df_not_correlated = ~(corr.mask(np.tril(np.ones([len(corr)] * 2, dtype=bool))).abs() > threshold).any()
@@ -174,7 +163,9 @@ def dropHighCorr(data, threshold):
     return df_out
 
 
+# Remove bacteria that appear in fewer samples than the defined threshold
 def drop_rare_bacteria(as_data_frame, threshold):
+    threshold = threshold * len(as_data_frame)  #threshold as number of people not as percent
     bact_to_num_of_non_zeros_values_map = {}
     bacteria = as_data_frame.columns
     num_of_samples = len(as_data_frame.index) - 1
@@ -197,7 +188,8 @@ def drop_rare_bacteria(as_data_frame, threshold):
     return as_data_frame
 
 
-def apply_pca(data, n_components=15, dim_red_type='PCA', visualize=False):
+# Apply PCA or ICA to reduce dimensions and return transformed data
+def apply_pca(data, n_components=15, dim_red_type='PCA'):
     if n_components == -1:
         pca = PCA(n_components=min(len(data.index), len(data.columns)))
         pca.fit(data)
@@ -209,6 +201,7 @@ def apply_pca(data, n_components=15, dim_red_type='PCA', visualize=False):
                 break
     else:
         components = n_components
+
     if dim_red_type == 'PCA':
         pca = PCA(n_components=components)
         pca.fit(data)
@@ -222,22 +215,13 @@ def apply_pca(data, n_components=15, dim_red_type='PCA', visualize=False):
 
         str_to_print += str("\nTotal explained variance: " + str(pca.explained_variance_ratio_.sum()))
 
-        if visualize:
-            plt.figure()
-            plt.plot(pca.explained_variance_ratio_.cumsum())
-            plt.bar(np.arange(0, components), height=pca.explained_variance_ratio_)
-            plt.title(
-                f'PCA - Explained variance using {n_components} components: {pca.explained_variance_ratio_.sum()}')
-            plt.xlabel('PCA #')
-            plt.xticks(list(range(0, components)), list(range(1, components + 1)))
-
-            plt.ylabel('Explained Variance')
     else:
         pca = FastICA(n_components=components)
         data_components = pca.fit_transform(data)
     return pd.DataFrame(data_components).set_index(data.index), pca, components
 
 
+# Fill missing taxonomy levels (e.g., genus, species) with placeholders
 def fill_taxonomy(as_data_frame, tax_col):
     if tax_col == 'columns':
         df_tax = pd.Series(as_data_frame.columns).str.split(';', expand=True)
@@ -269,20 +253,7 @@ def fill_taxonomy(as_data_frame, tax_col):
 
 
 
-
-def from_biom(biom_file_path, taxonomy_file_path, otu_dest_path, **kwargs):
-    # Load the biom table and rename index.
-    from biom import load_table
-    otu_table = load_table(biom_file_path).to_dataframe(True)
-    # Load the taxonomy file and extract the taxonomy column.
-    taxonomy = pd.read_csv(taxonomy_file_path, index_col=0, sep=None, **kwargs).drop('Confidence', axis=1,
-                                                                                     errors='ignore')
-    otu_table = pd.merge(otu_table, taxonomy, right_index=True, left_index=True)
-    otu_table.rename({'Taxon': 'taxonomy'}, inplace=True, axis=1)
-    otu_table = otu_table.transpose()
-    otu_table.index.name = 'ID'
-    otu_table.to_csv(otu_dest_path)
-
+# Group features based on taxonomy level and aggregation method
 def taxonomy_grouping(as_data_frame, preform_taxnomy_group, taxonomy_level):
     taxonomy_reduced = as_data_frame[taxonomy_col].map(lambda x: x.split(';'))
     if preform_taxnomy_group == 'sub PCA':
@@ -298,22 +269,12 @@ def taxonomy_grouping(as_data_frame, preform_taxnomy_group, taxonomy_level):
         as_data_frame = as_data_frame.groupby(as_data_frame[taxonomy_col]).sum()
         # group by anna PCA
     elif preform_taxnomy_group == 'sub PCA':
-        taxo_col = as_data_frame['taxonomy']
-        # as_data_frame = as_data_frame.iloc[:,:-1]
         as_data_frame = as_data_frame.groupby(as_data_frame[taxonomy_col]).mean()
     return as_data_frame
 
-def delete_empty_taxonomic_levels(i):
-    splited = i.split(';')
-    while re.search(r'^[a-z]_+\d*$', splited[-1]) is not None:
-        splited = splited[:-1]
-    i = ""
-    for j in splited:
-        i += j
-        i += ';'
-    i = i[:-1]
-    return i
 
+
+# Check if a taxonomy string has intermediate levels marked as '_'
 def check_cluster(tax):
     length = len(tax)
     length = length- 2
