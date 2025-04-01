@@ -1,29 +1,108 @@
-# MIPMLP
-## Preprocessing for 16S values
-Preproceesing the raw ASVs by the following steps: 
-(1) merging similar features based on the taxonomy, (2) scaling the distribution, (3) standardization to z-scores, (4) and dimension reduction.
+# MIPMLP 
+### (Microbiome Preprocessing Machine Learning Pipeline)
+MIPMLP is a modular pipeline for preprocessing 16S microbiome feature data (ASVs/OTUs) prior to classification tasks using machine learning.
 
-### Input    
-The input file for the preprocessing should contain detailed unnormalized OTU/Feature values as a biom table, the appropriate taxonomy as a tsv file, 
-**OR** 
-a merged otu and taxonomy csv, such that the first column is named "ID", each row represents a sample and each column represents an ASV. The last row contains the taxonomy information, named "taxonomy".
-Here is an example of how the input OTU file should look like : ([file example](https://mip-mlp.math.biu.ac.il/download-example-files))
+It is based on the paper:  
+*"Microbiome Preprocessing Machine Learning Pipeline", Frontiers in Immunology, 2021* ([link](https://www.frontiersin.org/articles/10.3389/fimmu.2021.677870/full))  
+
+## Background
+Raw microbiome data obtained from 16S sequencing (ASVs/OTUs) often requires careful preprocessing before it is suitable for machine learning (ML) classification tasks. MIPMLP (Microbiome Preprocessing Machine Learning Pipeline) was designed to improve ML performance by addressing issues such as sparsity, taxonomic redundancy, and skewed feature distributions. 
+
+#### MIPMLP consists of the following four modular steps:
+
+1. **Taxonomy Grouping**  
+   Merge features according to a specified taxonomy level: Order, Family, or Genus.  
+   Grouping method options:
+   - `sum`: total abundance
+   - `mean`: average abundance
+   - `sub-PCA`: PCA on each taxonomic group, retaining components explaining ≥50% of the variance  
+
+2. **Normalization**  
+   Normalize feature counts using:
+   - `log`: log10(x + epsilon) — recommended
+   - `relative`: divide by total sample counts
+
+3. **Standardization (Z-scoring)**  
+   Standardize across:
+   - Samples (row-wise)
+   - Features (column-wise)
+   - Both
+   - Or skip standardization altogether
+
+4. **Dimensionality Reduction (optional)**  
+   Apply PCA or ICA to reduce the number of features.
+
+These steps can be customized via a parameter dictionary as shown below.
+
+
+## How to Use
+### Installation & Setup
+
+1. **Clone this repository** (or download the code):
+   ```bash
+   git clone https://github.com/your_username/mipmlpOfir.git
+   cd mipmlpOfir
+   ```
+
+2. **Create a virtual environment** (optional but recommended):
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+
+3. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Run the example** (optional):
+   ```bash
+   python Visualization_For_Example/ForExample.py
+   ```
+ 
+5. **Run the MIPMLP pipeline**:
+   ```python
+   import MIPMLP
+   new_df = MIPMLP.preprocess(input_df, parameters)
+   ```
+
+
+### Input_df:   
+- **Option 1**: A `.biom` file with raw OTU/ASV counts + a taxonomy `.tsv` file  
+- **Option 2**: A merged `.csv` file that includes both features and taxonomy:
+  - First column: `"ID"` (sample IDs)  
+  - Rows: individual samples  
+  - Columns: ASVs/features  
+  - Last row: taxonomy info, labeled `"taxonomy"`  
+
+🔗 [Download example input file](https://mip-mlp.math.biu.ac.il/download-example-files)
 
 <img src="https://drive.google.com/uc?export=view&id=18s12Zxc4nOHjk0vr8YG8YQGDU0D8g7wp" alt="drawing" width="400" height="450"/>
 
-#### Optional
-It is possible to load a **tag file**, with the class of each sample.
-The tag file is not used for the preprocessing, but is used to provide some statistics on the relation between the features and the class.
-**Note: One can also run the preprocessing without a tag file.** 
+**Optional: Tag File**  
+You may also provide a **tag file** (as a DataFrame) containing class labels for each sample.  
+This is **not required** for preprocessing, but if present, MIPMLP will generate additional summary statistics relating features to classes.
 
-### Preprocessing Parameters
-Now you will have to select the parameters for the preprocessing.
+### Parameters:
+```python
+parameters = {
+    "taxonomy_level": 7,  # default: 7, options: 4-7
+    "taxonomy_group": "mean",  # default: "mean", options: "sub-PCA", "mean", "sum"
+    "epsilon": 0.00001,  # default: 0.00001, range: 0-1
+    "rare_bacteria_threshold": 0.01,  # default: 0.01 (1%)
+    "z_scoring": "No",  # default: "No", options: "row", "col", "both", "No"
+    "pca": (0, 'PCA'),  # default: (0, "PCA"), second value always "PCA"
+    "normalization": "log",  # default: "log", options: "log", "relative"
+    "norm_after_rel": "No",  # default: "No", options: "No", "relative"
+    "plot": False  # default: False, options: True, False
+}
+```
 1. **The taxonomy level used** - taxonomy sensitive dimension reduction by grouping the taxa at
  a given taxonomy level. All features with a given representation at a given taxonomy
  level will be grouped and merged using three different methods: Average, Sum or Sub-PCA (using PCA then followed by normalization).
 2. **Normalization** - after the grouping process, you can apply two different normalization methods. the first one is the log (10 base) scale. in this method 
 x → log10(x + ɛ),where ɛ is a minimal value to prevent log of zero values. 
-The second methos is to normalize each bacteria through its relative frequency.
+The second methods is to normalize each bacteria through its relative frequency.
         If you chose the **log normalization**, you now have four standardization 
                 a) No standardization
                 b) Z-score each sample
@@ -31,27 +110,22 @@ The second methos is to normalize each bacteria through its relative frequency.
                 d) Z-score each sample, and Z-score each bacteria (in this order)
 
     When performing **relative normalization**, we either do not standardize the results
-    or performe only a standardization on the taxa.
+    or perform only a standardization on the taxa.
     
-3. Dimension reduction - after the grouping, normalization and standardization you can choose from two Dimension reduction method: PCA or ICA. If you chose to apply a Dimension reduction method, you will also have to decide the number of dimensions you want to leave.
+3. **Dimension reduction** - after the grouping, normalization and standardization you can choose from two Dimension reduction method: PCA or ICA. If you chose to apply a Dimension reduction method, you will also have to decide the number of dimensions you want to leave.
 
-### How to use
-```python
-MIPMLP.preprocess(input_df)
-```
-#### Parameters:
--**taxonomy_level**: 4-7 , default is 7
--**taxnomy_group** : sub PCA, mean, sum, default is mean
--**epsilon**: 0-1
--**z_scoring**: row, col, both, No, default is No
--**pca**: (0, 'PCA') second element always PCA. first is 0/1
--**normalization**: log, relative, default is log
--**norm_after_rel**: No, relative, default is No
 
 ### Output
-The output is the processed file.
+The returned value is a preprocessed DataFrame, ready for ML pipelines.  
 
 <img src="https://drive.google.com/uc?export=view&id=1UPdJfUs_ZhuWFaHmTGP26gD3i2NFQCq6" alt="drawing" width="400" height="400"/>
+
+If `plot = True` , a histogram showing the percentage of samples in which each bacterium appears.  
+
+Example histogram visualization:
+
+<img src="/MIPMLP/Visualization_For_Example/visualization_example.jpeg" width="400" alt="visualization"/>
+
 
 ## iMic 
  iMic is a  method to combine information from different taxa and improves data representation for machine learning using microbial taxonomy. 
