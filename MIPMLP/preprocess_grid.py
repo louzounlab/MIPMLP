@@ -2,9 +2,9 @@ import pandas as pd
 import numpy as np
 from sklearn import preprocessing
 from collections import Counter
-from .distance_learning_func import distance_learning
 from sklearn.decomposition import PCA
 from sklearn.decomposition import FastICA
+from .subpca_by_taxonomy import SubPCAByTaxonomy
 
 
 taxonomy_col = 'taxonomy'
@@ -17,12 +17,12 @@ states = {1: "Creating otu And Mapping Files",
           5:"plotting diversities"}
 
 
-def preprocess_data(data, dict_params: dict, map_file):
+def preprocess_data(data, dict_params: dict, map_file=None, data_test=None):
     """
     Main preprocessing function for microbiome OTU data.
 
     Parameters:
-    - data: DataFrame of OTU counts
+    - data: DataFrame of OTU counts (df_train if provided)
     - dict_params: dictionary of preprocessing options
     - map_file: mapping table with sample tags (can be None)
 
@@ -49,40 +49,26 @@ def preprocess_data(data, dict_params: dict, map_file):
     as_data_frame = as_data_frame.fillna(0)
     as_data_frame.columns = [';'.join(str(i).split(';')[:7]) for i in as_data_frame.columns ]
 
-    # Filter out non-bacterial or poorly classified entries-
-    # droping viruese, unclasstered bacterias, bacterias which are clustered with more than specie and unnamed bacterias
+    # Filter out non-bacterial or poorly classified entries- droping viruese, unclasstered bacterias, bacterias which are clustered with more than specie and unnamed bacterias
     indexes = as_data_frame[taxonomy_col]
     stay = []
     for i in range(len(indexes)):
         if str(as_data_frame[taxonomy_col][i])[0].lower() > min_letter_value and as_data_frame[taxonomy_col][i].split(';')[0][-len("Viruses"):] != "Viruses":
             length = len(as_data_frame[taxonomy_col][i].split(';'))
-            if length<8 and not ("." not in as_data_frame[taxonomy_col][i].split(';')[length-1] and as_data_frame[taxonomy_col][i].split(';')[length-1][-1]!="_" and check_cluster(as_data_frame[taxonomy_col][i].split(';'))):
+            if length<8 and not ("." not in as_data_frame[taxonomy_col][i].split(';')[length-1] and
+                                 as_data_frame[taxonomy_col][i].split(';')[length-1][-1]!="_" and
+                                 check_cluster(as_data_frame[taxonomy_col][i].split(';'))):
                 stay.append(i)
 
     as_data_frame = as_data_frame.iloc[stay,:]
-    # Fill in missing taxonomy levels with default values (e.g., s__, g__)
-    as_data_frame = fill_taxonomy(as_data_frame, tax_col=taxonomy_col)
-    # Remove spaces from taxonomy names and set them as row indexes
-    indexes = as_data_frame[taxonomy_col]
-    new_indexes = []
-
-    for i in range(len(indexes)):
-        new_indexes.append(as_data_frame[taxonomy_col][i].replace(" ",""))
-    as_data_frame[taxonomy_col] = new_indexes
-    as_data_frame.index = new_indexes
 
     # Perform taxonomy grouping (mean, sum, or sub PCA) if requested
     if preform_taxnomy_group != '':
         as_data_frame = taxonomy_grouping(as_data_frame, preform_taxnomy_group, taxonomy_level)
-        # If no grouping is specified, drop taxonomy column and transpose
-        # here the samples are columns
         as_data_frame = as_data_frame.T
-    else:
-        try:
-            as_data_frame = as_data_frame.drop(taxonomy_col, axis=1).T
-            # here the samples are columns
-        except:
-            pass
+
+    # לClean taxonomy names and drop taxonomy column
+    as_data_frame = clean_taxonomy_names(as_data_frame)
 
     # Remove features (bacteria) with high correlation
     if correlation_removal_threshold is not None:
@@ -98,7 +84,6 @@ def preprocess_data(data, dict_params: dict, map_file):
         # Optionally apply z-score normalization
         if preform_z_scoring != 'No':
             as_data_frame = z_score(as_data_frame, preform_z_scoring)
-
     elif preform_norm == 'relative':
         as_data_frame = row_normalization(as_data_frame)
         if relative_z == "z_after_relative":
@@ -110,7 +95,9 @@ def preprocess_data(data, dict_params: dict, map_file):
 
     # If using sub PCA, apply distance learning to generate features
     if preform_taxnomy_group == 'sub PCA':
-        as_data_frame, _ = distance_learning(perform_distance=True, level=taxonomy_level, preproccessed_data=as_data_frame, mapping_file=map_file)
+        sub_pca = SubPCAByTaxonomy(level=taxonomy_level)
+        as_data_frame = sub_pca.fit(as_data_frame)
+
         as_data_frame_b_pca = as_data_frame
         as_data_frame = fill_taxonomy(as_data_frame, tax_col='columns')
 
@@ -120,8 +107,32 @@ def preprocess_data(data, dict_params: dict, map_file):
     else:
         pca_obj = None
 
-    # Return all processed outputs for further use
-    return as_data_frame, as_data_frame_b_pca, pca_obj, bacteria, pca
+    # If test data provided, apply transform using train parameters
+    if data_test is not None:
+        test_data_frame = pd.DataFrame(data_test.T).apply(pd.to_numeric, errors='ignore').copy()
+        test_data_frame = test_data_frame.fillna(0)
+        test_data_frame.columns = [';'.join(str(i).split(';')[:7]) for i in test_data_frame.columns]
+        test_data_frame = clean_taxonomy_names(test_data_frame)
+        test_data_frame = test_data_frame.T
+        if preform_taxnomy_group == 'sub PCA':
+            test_data_frame = sub_pca.transform(test_data_frame)
+
+        # Apply same normalization steps
+        if preform_norm == 'log':
+            test_data_frame = log_normalization(test_data_frame, eps_for_zeros)
+            if preform_z_scoring != 'No':
+                test_data_frame = z_score(test_data_frame, preform_z_scoring)
+        elif preform_norm == 'relative':
+            test_data_frame = row_normalization(test_data_frame)
+            if relative_z == "z_after_relative":
+                test_data_frame = z_score(test_data_frame, 'col')
+
+        # Apply PCA transform if PCA was trained
+        if pca_obj is not None:
+            test_data_frame = pca_obj.transform(test_data_frame)
+            test_data_frame = pd.DataFrame(test_data_frame, index=data_test.index)
+        return as_data_frame, as_data_frame_b_pca, pca_obj, bacteria, pca, test_data_frame
+    return as_data_frame, as_data_frame_b_pca, pca_obj, bacteria, pca, None
 
 
 # Normalize each sample's row to sum to 1 (relative abundance)
@@ -250,6 +261,19 @@ def fill_taxonomy(as_data_frame, tax_col):
         ] + ';' + df_tax[3] + ';' + df_tax[4] + ';' + df_tax[5] + ';' + df_tax[
                                  6]
     return as_data_frame
+
+
+#  Clean taxonomy names (standardize + index)
+def clean_taxonomy_names(df):
+    if taxonomy_col not in df.columns:
+        # Skip if taxonomy already dropped
+        return df
+
+    df = fill_taxonomy(df, tax_col=taxonomy_col)
+    df.index = df[taxonomy_col].str.replace(" ", "")
+    df = df.drop(taxonomy_col, axis=1)
+    return df
+
 
 
 

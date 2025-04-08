@@ -37,6 +37,12 @@ These steps can be customized via a parameter dictionary as shown below.
 
 ## How to Use
 ### Installation & Setup
+2. **Create a virtual environment** (optional but recommended):
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+
 
 1. **Install dependencies**:
    ```bash

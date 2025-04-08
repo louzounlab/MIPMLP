@@ -1,24 +1,30 @@
 from .preprocess_grid import preprocess_data
 
 """
-This module defines the CreateOtuAndMappingFiles class, which is responsible for handling microbiome data
-preprocessing. It accepts an OTU table and an optional mapping (tags) file, and performs preprocessing steps
-including:
+CreateOtuAndMappingFiles handles preprocessing of microbiome OTU data 
+for machine learning. Supports both train and optional test sets.
 
-- Taxonomy filtering and formatting
-- Normalization (log or relative)
-- Z-score standardization
-- Optional PCA (dimensionality reduction)
-- Correlation filtering
-- Tag alignment and metadata processing
+Main usage:
+- Initialize with train OTU table (+ optional tags + optional test OTU table)
+- Run apply_preprocess() to perform all transformations on train,
+  and optionally transform test with the same fitted steps.
 
-The processed OTU table is stored internally and can be used for downstream analysis or visualization.
+__init__(df_train, tags_file=None, df_test=None)
+    - Loads and formats the OTU train data
+    - Optionally processes tags file (for labels/metadata)
+    - Optionally loads test OTU data (will only be transformed later)
+
+apply_preprocess(preprocess_params, test_flag=False)
+    - Applies preprocessing pipeline to train
+    - If test_flag=True and test data was provided, applies same transforms to test
+    - Updates internal attributes with processed train and test data
 """
 
 
 class CreateOtuAndMappingFiles(object):   # Class to manage OTU and mapping data and apply preprocessing
-    def __init__(self, otu_file, tags_file):  # Get two relative path of csv files
+    def __init__(self, df_train, tags_file, df_test=None):  # Get two relative path of csv files
         self.tags = False
+        self.otu_features_test_df = None
 
         if tags_file is not None:    # Check if mapping (tags) file was provided
             self.tags = True
@@ -31,19 +37,53 @@ class CreateOtuAndMappingFiles(object):   # Class to manage OTU and mapping data
             self.ids.append('taxonomy')
 
         # Prepare OTU features DataFrame: remove unnamed column and set index
-        self.otu_features_df = otu_file.drop('Unnamed: 0', axis=1,errors='ignore')
+        # ======== train df ========
+        self.otu_features_df = df_train.drop('Unnamed: 0', axis=1, errors='ignore')
         self.otu_features_df = self.otu_features_df.set_index('ID')
         self.otu_features_df.index = self.otu_features_df.index.astype(str)
+        # ======== test df (if provided) ========
+        if df_test is not None:
+            self.otu_features_test_df = df_test.drop('Unnamed: 0', axis=1, errors='ignore')
+            self.otu_features_test_df = self.otu_features_test_df.set_index('ID')
+            self.otu_features_test_df.index = self.otu_features_test_df.index.astype(str)
+
         self.pca_ocj = None
         self.pca_comp = None
 
-    def apply_preprocess(self, preprocess_params):    # Apply preprocessing steps including normalization and optional PCA
-        if self.tags:
-            self.otu_features_df, self.otu_features_df_b_pca, self.pca_ocj, self.bacteria, self.pca_comp = preprocess_data(
-                self.otu_features_df, preprocess_params, self.tags_df)
+    # Apply preprocessing steps including normalization and optional PCA
+    def apply_preprocess(self, preprocess_params, test_flag=False):
+
+        if test_flag and self.otu_features_test_df is not None:
+            result = preprocess_data(self.otu_features_df,
+                                     preprocess_params,
+                                     self.tags_df if self.tags else None,
+                                     data_test=self.otu_features_test_df
+                                     )
+        elif self.tags:
+            result = preprocess_data(
+                self.otu_features_df,
+                preprocess_params,
+                self.tags_df
+            )
         else:
-            self.otu_features_df, self.otu_features_df_b_pca, self.pca_ocj, self.bacteria, self.pca_comp = preprocess_data(
-                self.otu_features_df, preprocess_params, map_file=None)
-                # otu_features_df is the processed data, before pca
-        if int(preprocess_params['pca'][0]) == 0:
-            self.otu_features_df = self.otu_features_df_b_pca
+            result = preprocess_data(
+                self.otu_features_df,
+                preprocess_params,
+                map_file=None
+            )
+
+        # Unpack results, with or without test
+        if len(result) == 6:
+            (self.otu_features_df,
+             self.otu_features_df_b_pca,
+             self.pca_ocj,
+             self.bacteria,
+             self.pca_comp,
+             self.otu_features_test_df) = result
+        else:
+            (self.otu_features_df,
+             self.otu_features_df_b_pca,
+             self.pca_ocj,
+             self.bacteria,
+             self.pca_comp) = result
+            self.otu_features_test_df = None

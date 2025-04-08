@@ -1,4 +1,6 @@
 from .create_otu_and_mapping_files import CreateOtuAndMappingFiles
+import plotly.express as px
+
 
 """
 This module defines the main preprocessing function used in the pipeline.
@@ -6,7 +8,8 @@ It initializes the data processing class, sets parameters, and performs optional
 """
 
 # Import data handling and plotting utilities
-def preprocess(df, tag=None, taxonomy_level=7, taxnomy_group='mean', epsilon=0.1, normalization='log', z_scoring='No', norm_after_rel='No', pca=(0, 'PCA'), rare_bacteria_threshold=0.01, plot=False):
+def preprocess(df, tag=None, taxonomy_level=7, taxnomy_group='mean', epsilon=0.1, normalization='log', z_scoring='No', norm_after_rel='No', pca=(0, 'PCA'),
+               rare_bacteria_threshold=0.01, plot=False, df_test=None, test_flag=False):
     """
     Preprocess OTU and mapping data for downstream analysis.
 
@@ -22,32 +25,40 @@ def preprocess(df, tag=None, taxonomy_level=7, taxnomy_group='mean', epsilon=0.1
     - pca (tuple): (0/1, 'PCA') to apply PCA
     - rare_bacteria_threshold (float): threshold to filter rare bacteria
     - plot (bool): whether to plot bacteria presence
+    - df_test: optional test DataFrame
+    - test_flag (bool): if True, use df_test for transform only
 
     Returns:
-    - Processed OTU features DataFrame
+    - Processed OTU features DataFrame (train)
+    - Processed OTU features DataFrame (test, if test_flag is True)
     """
 
     # Pack all preprocessing parameters into a dictionary
-    params = {'taxonomy_level': taxonomy_level, 'taxnomy_group': taxnomy_group, 'epsilon': epsilon, 'normalization': normalization, 'z_scoring': z_scoring, 'norm_after_rel': norm_after_rel, 'pca': pca, 'rare_bacteria_threshold': rare_bacteria_threshold}
+    params = {'taxonomy_level': taxonomy_level,
+              'taxnomy_group': taxnomy_group,
+              'epsilon': epsilon,
+              'normalization': normalization,
+              'z_scoring': z_scoring,
+              'norm_after_rel': norm_after_rel,
+              'pca': pca,
+              'rare_bacteria_threshold': rare_bacteria_threshold}
 
     # Initialize the OTU and mapping file processor
     if tag is None:
-        mapping_file = CreateOtuAndMappingFiles(df, tags_file=None)
+        mapping_file = CreateOtuAndMappingFiles(df, tags_file=None, df_test=df_test)
     else:
-        mapping_file = CreateOtuAndMappingFiles(df,tag)
+        mapping_file = CreateOtuAndMappingFiles(df,tag, df_test=df_test)
 
-    mapping_file.apply_preprocess(preprocess_params=params)  # Apply preprocessing steps to the data
-
+    # Apply preprocessing steps to the data
+    mapping_file.apply_preprocess(preprocess_params=params, test_flag=test_flag)
 
     if plot:       # Optionally generate a plot of bacteria presence across samples
         plot_bacteria_presence(mapping_file.otu_features_df, output_path="figures/bacteria_presence.png")
 
-    return mapping_file.otu_features_df    # Optionally generate a plot of bacteria presence across samples
+    return mapping_file.otu_features_df, mapping_file.otu_features_test_df
 
 
 # Function creates plot bar chart showing the percentage of samples each bacterium appears in
-import plotly.express as px
-
 def plot_bacteria_presence(otu_df, output_path):
     # Remove taxonomy row if exists before calculating presence
     otu_df = otu_df.drop(index='taxonomy', errors='ignore')

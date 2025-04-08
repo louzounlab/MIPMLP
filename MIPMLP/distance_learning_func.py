@@ -1,3 +1,6 @@
+# DEPRECATED: replaced by SubPCAByTaxonomy
+
+
 from sklearn.decomposition import PCA
 import pandas as pd
 from .general import apply_pca
@@ -10,13 +13,18 @@ Parameters:
 - level: taxonomy level to group features (e.g. genus, species)
 - preprocessed_data: OTU table with samples as rows and taxa as columns
 - mapping_file: metadata, passed through unchanged
+- test_data: optional test OTU table to transform with PCA
 
 Returns:
-- new_df: dataframe after PCA per taxonomy group
+- new_df: dataframe after PCA per taxonomy group (train)
 - mapping_file: unchanged
+- new_df_test: dataframe after PCA (test), or None if not provided
 """
 
-def distance_learning(perform_distance, level, preprocessed_data, mapping_file):
+def distance_learning(perform_distance, level, preprocessed_data, mapping_file, test_data=None):
+
+    new_df_test = pd.DataFrame(index=test_data.index) if test_data is not None else None
+
     if perform_distance:
         # Identify columns with a single unique value
         unique_cols = []
@@ -76,18 +84,26 @@ def distance_learning(perform_distance, level, preprocessed_data, mapping_file):
                 # Apply PCA to the group
                 otu_after_pca_new, pca_obj, pca_str = apply_pca(new_data, n_components=num_comp)
 
+                if test_data is not None:
+                    test_group = test_data[values]
+                    test_after_pca = pd.DataFrame(pca.transform(test_group), index=test_data.index)
+
+
                 # Add PCA components to the new dataframe with informative column names
                 for j in range(otu_after_pca_new.shape[1]):
-                    if key == 'else':
-                        new_df['else;'] = otu_after_pca_new[j]
-                    else:
-                        new_df[str(values[0][0:values[0].find(key)+len(key)])+'_'+str(j)] = otu_after_pca_new[j]
+                    col_name = 'else;' if key == 'else' else str(
+                        values[0][0:values[0].find(key) + len(key)]) + '_' + str(j)
+                    new_df[col_name] = otu_after_pca_new[j]
+                    if new_df_test is not None:
+                        new_df_test[col_name] = test_after_pca.iloc[:, j]
                 col += num_comp
+
         # Combine reduced PCA features with constant-value features
         dfs = [new_df, unique_cols_df]
         new_df = pd.concat(dfs, axis=1)
 
         # Return processed dataframe and unchanged mapping file
-        return new_df, mapping_file
+        return new_df, mapping_file, new_df_test
     else:
-        return preprocessed_data, mapping_file
+        return preprocessed_data, mapping_file, None
+
