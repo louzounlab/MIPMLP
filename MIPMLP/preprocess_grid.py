@@ -282,7 +282,7 @@ def fill_taxonomy(as_data_frame, tax_col):
     if tax_col == 'columns':
         df_tax = pd.Series(as_data_frame.columns).str.split(';', expand=True)
         i = df_tax.shape[1]
-        while i < 7:
+        while i < 8:
             df_tax[i] = np.nan
             i+=1
     else:
@@ -290,6 +290,8 @@ def fill_taxonomy(as_data_frame, tax_col):
         if df_tax.shape[1] == 1:
             # We need to use a differant separator
             df_tax = as_data_frame[tax_col].str.split('|', expand=True)
+    if df_tax.shape[1] == 8:
+        df_tax[7] = df_tax[7].fillna('t__')
     df_tax[6] = df_tax[6].fillna('s__')
     df_tax[5] = df_tax[5].fillna('g__')
     df_tax[4] = df_tax[4].fillna('f__')
@@ -298,13 +300,20 @@ def fill_taxonomy(as_data_frame, tax_col):
     df_tax[1] = df_tax[1].fillna('p__')
     df_tax[0] = df_tax[0].fillna('k__')
     if tax_col == 'columns':
-        as_data_frame.columns = df_tax[0] + ';' + df_tax[1] + ';' + df_tax[2
-        ] + ';' + df_tax[3] + ';' + df_tax[4] + ';' + df_tax[5] + ';' + df_tax[
-                                     6]
+        if df_tax.shape[1] == 8:
+            as_data_frame.columns = df_tax[0] + ';' + df_tax[1] + ';' + df_tax[2
+            ] + ';' + df_tax[3] + ';' + df_tax[4] + ';' + df_tax[5] + ';' + df_tax[6] + ';' + df_tax[7]
+        else:
+            as_data_frame.columns = df_tax[0] + ';' + df_tax[1] + ';' + df_tax[2
+            ] + ';' + df_tax[3] + ';' + df_tax[4] + ';' + df_tax[5] + ';' + df_tax[6]
     else:
-        as_data_frame[tax_col] = df_tax[0] + ';' + df_tax[1] + ';' + df_tax[2
-        ] + ';' + df_tax[3] + ';' + df_tax[4] + ';' + df_tax[5] + ';' + df_tax[
-                                 6]
+        if df_tax.shape[1] == 8:
+            as_data_frame[tax_col] = df_tax[0] + ';' + df_tax[1] + ';' + df_tax[2
+            ] + ';' + df_tax[3] + ';' + df_tax[4] + ';' + df_tax[5] + ';' + df_tax[6] + ';' + df_tax[7]
+        else:
+            as_data_frame[tax_col] = df_tax[0] + ';' + df_tax[1] + ';' + df_tax[2
+            ] + ';' + df_tax[3] + ';' + df_tax[4] + ';' + df_tax[5] + ';' + df_tax[6]
+
     return as_data_frame
 
 
