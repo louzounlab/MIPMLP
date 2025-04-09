@@ -1,4 +1,7 @@
-# DEPRECATED: replaced by SubPCAByTaxonomy
+
+
+
+######## DEPRECATED: replaced by SubPCAByTaxonomy ##########
 
 
 from sklearn.decomposition import PCA

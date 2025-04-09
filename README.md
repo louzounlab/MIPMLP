@@ -80,7 +80,7 @@ This is **not required** for preprocessing, but if present, MIPMLP will generate
 ```python
 parameters = {
     "taxonomy_level": 7,  # default: 7, options: 4-7
-    "taxonomy_group": "mean",  # default: "mean", options: "sub-PCA", "mean", "sum"
+    "taxonomy_group": "mean",  # default: "mean", options: "sub PCA", "mean", "sum"
     "epsilon": 0.00001,  # default: 0.00001, range: 0-1
     "rare_bacteria_threshold": 0.01,  # default: 0.01 (1%)
     "z_scoring": "No",  # default: "No", options: "row", "col", "both", "No"

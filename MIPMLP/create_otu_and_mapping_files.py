@@ -14,9 +14,9 @@ __init__(df_train, tags_file=None, df_test=None)
     - Optionally processes tags file (for labels/metadata)
     - Optionally loads test OTU data (will only be transformed later)
 
-apply_preprocess(preprocess_params, test_flag=False)
+apply_preprocess(preprocess_params)
     - Applies preprocessing pipeline to train
-    - If test_flag=True and test data was provided, applies same transforms to test
+    - If test data was provided, applies same transforms to test
     - Updates internal attributes with processed train and test data
 """
 
@@ -25,6 +25,9 @@ class CreateOtuAndMappingFiles(object):   # Class to manage OTU and mapping data
     def __init__(self, df_train, tags_file, df_test=None):  # Get two relative path of csv files
         self.tags = False
         self.otu_features_test_df = None
+        self.external_sub_pca = None
+        self.external_pca = None
+
 
         if tags_file is not None:    # Check if mapping (tags) file was provided
             self.tags = True
@@ -49,11 +52,14 @@ class CreateOtuAndMappingFiles(object):   # Class to manage OTU and mapping data
 
         self.pca_ocj = None
         self.pca_comp = None
+        self.sub_pca_ocj = None
 
     # Apply preprocessing steps including normalization and optional PCA
-    def apply_preprocess(self, preprocess_params, test_flag=False):
+    def apply_preprocess(self, preprocess_params):
+        self.external_sub_pca = preprocess_params.get("external_sub_pca", None)
+        self.external_pca = preprocess_params.get("external_pca", None)
 
-        if test_flag and self.otu_features_test_df is not None:
+        if self.otu_features_test_df is not None:
             result = preprocess_data(self.otu_features_df,
                                      preprocess_params,
                                      self.tags_df if self.tags else None,
@@ -73,13 +79,24 @@ class CreateOtuAndMappingFiles(object):   # Class to manage OTU and mapping data
             )
 
         # Unpack results, with or without test
-        if len(result) == 6:
+        if len(result) == 7:
             (self.otu_features_df,
              self.otu_features_df_b_pca,
              self.pca_ocj,
              self.bacteria,
              self.pca_comp,
-             self.otu_features_test_df) = result
+             self.otu_features_test_df,
+             self.sub_pca_ocj) = result
+
+        elif len(result) == 6:
+            (self.otu_features_df,
+             self.otu_features_df_b_pca,
+             self.pca_ocj,
+             self.bacteria,
+             self.pca_comp,
+             self.sub_pca_ocj) = result
+            self.otu_features_test_df = None
+
         else:
             (self.otu_features_df,
              self.otu_features_df_b_pca,
@@ -87,3 +104,4 @@ class CreateOtuAndMappingFiles(object):   # Class to manage OTU and mapping data
              self.bacteria,
              self.pca_comp) = result
             self.otu_features_test_df = None
+            self.sub_pca_ocj = None

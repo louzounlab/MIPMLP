@@ -1,5 +1,10 @@
 import MIPMLP
 import pandas as pd
+import pickle
+import warnings
+warnings.filterwarnings("ignore")
+
+
 
 # Load the data
 df = pd.read_csv("example_input_files/example_input_files1/OTU.csv")
@@ -20,10 +25,54 @@ test_df_with_last = pd.concat([test_df, last_row], ignore_index=True)
 train_df_with_last.to_csv("OTU_train.csv", index=False)
 test_df_with_last.to_csv("OTU_test.csv", index=False)
 
-# Run the pipeline
-df_train_processed, df_test_processed = MIPMLP.preprocess(train_df_with_last, df_test=test_df_with_last, plot=True, test_flag=True)
 
 
-# Save processed output
+# --- Option 1: full pipeline with train and test (with sub pca) ---
+df_train_processed, df_test_processed = MIPMLP.preprocess(
+   train_df_with_last,
+   df_test=test_df_with_last,
+   plot=True,
+   taxnomy_group='sub PCA')
+#Save processed output
 df_train_processed.to_csv("OTU_MIP_train.csv", index=False)
 df_test_processed.to_csv("OTU_MIP_test.csv", index=False)
+
+
+
+# --- Option 2: single dataset with external sub PCA ---
+#with open("sub_pca_scaler.pkl", "rb") as f:
+  #  saved_sub_pca = pickle.load(f)
+
+  #  df_single_processed = MIPMLP.preprocess(
+   #     train_df_with_last,  # using train as a single dataset
+    #    external_sub_pca=saved_sub_pca,
+    #    taxnomy_group='sub PCA',
+   #     plot=True
+     #   )
+#df_single_processed.to_csv("OTU_MIP_single.csv", index=False)
+
+
+
+
+# --- Option 1: full pipeline with train and test (with pca) ---
+#df_train_processed, df_test_processed = MIPMLP.preprocess(
+#   train_df_with_last,
+  # df_test=test_df_with_last,
+  # pca= (1, 'PCA'))
+
+# Save processed output
+#df_train_processed.to_csv("OTU_MIP_train.csv", index=False)
+#df_test_processed.to_csv("OTU_MIP_test.csv", index=False)
+
+
+
+# --- Option 2: single dataset with external PCA ---
+# with open("pca_scaler.pkl", "rb") as f:
+#     saved_pca = pickle.load(f)
+#
+#     df_single_processed = MIPMLP.preprocess(
+#         train_df_with_last,  # using train as a single dataset
+#         external_pca=saved_pca,
+#         taxnomy_group='sub PCA',
+#         )
+# df_single_processed.to_csv("OTU_MIP_single.csv", index=False)
