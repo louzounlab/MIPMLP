@@ -78,7 +78,7 @@ test_df_with_last.to_csv("OTU_test.csv", index=False)
 # df_single_processed.to_csv("OTU_MIP_single.csv", index=False)
 
 
-# --- Option 5: single database (8 taxomony) without external scaler ---
+# --- Option 5: single database (8 taxomony) without external or_preprocess_8_taxonoscaler ---
 df1 = pd.read_csv("example_input_files/for_preprocess_8_taxonomy.csv")
 df_single_processed = MIPMLP.preprocess(
        df1,

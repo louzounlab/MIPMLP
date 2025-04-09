@@ -48,10 +48,10 @@ def preprocess_data(data, dict_params: dict, map_file=None, data_test=None):
     rare_bacteria_threshold = dict_params.get('rare_bacteria_threshold', None)
     pca = dict_params['pca']
 
-    # Convert data to numeric DataFrame and limit taxonomy to 7 levels
+    # Convert data to numeric DataFrame and limit taxonomy to 8 levels
     as_data_frame = pd.DataFrame(data.T).apply(pd.to_numeric, errors='ignore').copy()  # data frame of OTUs
     as_data_frame = as_data_frame.fillna(0)
-    as_data_frame.columns = [';'.join(str(i).split(';')[:7]) for i in as_data_frame.columns ]
+    as_data_frame.columns = [';'.join(str(i).split(';')[:8]) for i in as_data_frame.columns ]
 
     # Filter out non-bacterial or poorly classified entries- droping viruese, unclasstered bacterias, bacterias which are clustered with more than specie and unnamed bacterias
     indexes = as_data_frame[taxonomy_col]
@@ -59,7 +59,7 @@ def preprocess_data(data, dict_params: dict, map_file=None, data_test=None):
     for i in range(len(indexes)):
         if str(as_data_frame[taxonomy_col][i])[0].lower() > min_letter_value and as_data_frame[taxonomy_col][i].split(';')[0][-len("Viruses"):] != "Viruses":
             length = len(as_data_frame[taxonomy_col][i].split(';'))
-            if length<8 and not ("." not in as_data_frame[taxonomy_col][i].split(';')[length-1] and
+            if length<9 and not ("." not in as_data_frame[taxonomy_col][i].split(';')[length-1] and
                                  as_data_frame[taxonomy_col][i].split(';')[length-1][-1]!="_" and
                                  check_cluster(as_data_frame[taxonomy_col][i].split(';'))):
                 stay.append(i)
