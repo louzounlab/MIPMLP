@@ -34,33 +34,55 @@ Raw microbiome data obtained from 16S sequencing (ASVs/OTUs) often requires care
 
 These steps can be customized via a parameter dictionary as shown below.
 
+---
 
 ## How to Use
 ### Installation & Setup
-2. **Create a virtual environment** (optional but recommended):
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   ```
+```bash
+# (optional) create a virtual environment:
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
+# install dependencies:
+pip install -r requirements.txt
+```
 
-1. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Run the pipeline
+```python
+import MIPMLP
 
-2. **Run the example** (optional):
-   ```bash
-   python Visualization_For_Example/ForExample.py
-   ```
- 
-3. **Run the MIPMLP pipeline**:
-   ```python
-   import MIPMLP
-   new_df = MIPMLP.preprocess(input_df, parameters)
-   ```
+# basic usage:
+df_processed = MIPMLP.preprocess(df_train)
 
-### Input_df:   
+# full usage:
+df_train_processed, df_test_processed = MIPMLP.preprocess(
+    df_train,
+    tag=tag_df,  # optional
+    taxonomy_level=7,   # default: 7, options: 4-8
+    taxnomy_group='mean',  # default: "mean", options: "sub PCA", "mean", "sum"
+    epsilon=0.00001,   # default: 0.00001, range: 0-1
+    normalization='log',  # default: "log", options: "log", "relative"
+    z_scoring='No',  # default: "No", options: "row", "col", "both", "No"
+    norm_after_rel='No',  # default: "No", options: "No", "z_after_relative" (only used with 'relative')
+    pca=(0, 'PCA'),  # default: (0, "PCA"), use (n, "PCA") for dimensionality reduction, -1 for auto
+    rare_bacteria_threshold=0.01,   # default: 0.01 (1%), removes bacteria that appear in fewer samples
+    plot=False,   # default: False, options: True, False
+    df_test=df_test_df,  # optional: test set to be preprocessed with same parameters
+    external_sub_pca=sub_pca_model,  # optional: use pre-fitted SubPCA model instead of fitting
+    external_pca=pca_model  # optional: use pre-fitted PCA model instead of fitting
+}
+)
+```
+
+#### Behavior:
+- If `df_test` is provided, the pipeline returns both train and test DataFrames .
+- If not, it returns only the processed train DataFrame.
+- You may pass a pre-fitted PCA or SubPCA model; otherwise, the pipeline will fit one for you.
+
+---
+
+### Input Format:  
+You can provide:
 - **Option 1**: A `.biom` file with raw OTU/ASV counts + a taxonomy `.tsv` file  
 - **Option 2**: A merged `.csv` file that includes both features and taxonomy:
   - First column: `"ID"` (sample IDs)  
@@ -70,55 +92,26 @@ These steps can be customized via a parameter dictionary as shown below.
 
 🔗 [Download example input file](https://mip-mlp.math.biu.ac.il/download-example-files)
 
-<img src="https://drive.google.com/uc?export=view&id=18s12Zxc4nOHjk0vr8YG8YQGDU0D8g7wp" alt="drawing" width="400" height="450"/>
-
 **Optional: Tag File**  
 You may also provide a **tag file** (as a DataFrame) containing class labels for each sample.  
 This is **not required** for preprocessing, but if present, MIPMLP will generate additional summary statistics relating features to classes.
 
-### Parameters:
-```python
-parameters = {
-    "taxonomy_level": 7,  # default: 7, options: 4-7
-    "taxonomy_group": "mean",  # default: "mean", options: "sub PCA", "mean", "sum"
-    "epsilon": 0.00001,  # default: 0.00001, range: 0-1
-    "rare_bacteria_threshold": 0.01,  # default: 0.01 (1%)
-    "z_scoring": "No",  # default: "No", options: "row", "col", "both", "No"
-    "pca": (0, 'PCA'),  # default: (0, "PCA"), second value always "PCA"
-    "normalization": "log",  # default: "log", options: "log", "relative"
-    "norm_after_rel": "No",  # default: "No", options: "No", "relative"
-    "plot": False  # default: False, options: True, False
-}
-```
-1. **The taxonomy level used** - taxonomy sensitive dimension reduction by grouping the taxa at
- a given taxonomy level. All features with a given representation at a given taxonomy
- level will be grouped and merged using three different methods: Average, Sum or Sub-PCA (using PCA then followed by normalization).
-2. **Normalization** - after the grouping process, you can apply two different normalization methods. the first one is the log (10 base) scale. in this method 
-x → log10(x + ɛ),where ɛ is a minimal value to prevent log of zero values. 
-The second methods is to normalize each bacteria through its relative frequency.
-        If you chose the **log normalization**, you now have four standardization 
-                a) No standardization
-                b) Z-score each sample
-                c) Z-score each bacteria
-                d) Z-score each sample, and Z-score each bacteria (in this order)
-
-    When performing **relative normalization**, we either do not standardize the results
-    or perform only a standardization on the taxa.
-    
-3. **Dimension reduction** - after the grouping, normalization and standardization you can choose from two Dimension reduction method: PCA or ICA. If you chose to apply a Dimension reduction method, you will also have to decide the number of dimensions you want to leave.
-
 
 ### Output
 The returned value is a preprocessed DataFrame, ready for ML pipelines.  
+If both train and test are provided, both are returned. 
+
 
 <img src="https://drive.google.com/uc?export=view&id=1UPdJfUs_ZhuWFaHmTGP26gD3i2NFQCq6" alt="drawing" width="400" height="400"/>
 
 If `plot = True` , a histogram showing the percentage of samples in which each bacterium appears.  
+(⚠️ If `pca` is enabled, `plot=True` is not recommended. The visualization will not reflect the original features post-dimensionality reduction.)
 
 Example histogram visualization:
 
 <img src="/MIPMLP/Visualization_For_Example/visualization_example.jpeg" width="400" alt="visualization"/>
 
+---
 
 ## iMic 
  iMic is a  method to combine information from different taxa and improves data representation for machine learning using microbial taxonomy. 

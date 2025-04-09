@@ -28,14 +28,14 @@ test_df_with_last.to_csv("OTU_test.csv", index=False)
 
 
 # --- Option 1: full pipeline with train and test (with sub pca) ---
-df_train_processed, df_test_processed = MIPMLP.preprocess(
-   train_df_with_last,
-   df_test=test_df_with_last,
-   plot=True,
-   taxnomy_group='sub PCA')
-#Save processed output
-df_train_processed.to_csv("OTU_MIP_train.csv", index=False)
-df_test_processed.to_csv("OTU_MIP_test.csv", index=False)
+# df_train_processed, df_test_processed = MIPMLP.preprocess(
+#    train_df_with_last,
+#    df_test=test_df_with_last,
+#    plot=True,
+#    taxnomy_group='sub PCA')
+# #Save processed output
+# df_train_processed.to_csv("OTU_MIP_train.csv", index=False)
+# df_test_processed.to_csv("OTU_MIP_test.csv", index=False)
 
 
 
@@ -54,7 +54,7 @@ df_test_processed.to_csv("OTU_MIP_test.csv", index=False)
 
 
 
-# --- Option 1: full pipeline with train and test (with pca) ---
+# --- Option 3: full pipeline with train and test (with pca) ---
 #df_train_processed, df_test_processed = MIPMLP.preprocess(
 #   train_df_with_last,
   # df_test=test_df_with_last,
@@ -66,7 +66,7 @@ df_test_processed.to_csv("OTU_MIP_test.csv", index=False)
 
 
 
-# --- Option 2: single dataset with external PCA ---
+# --- Option 4: single dataset with external PCA ---
 # with open("pca_scaler.pkl", "rb") as f:
 #     saved_pca = pickle.load(f)
 #
@@ -76,3 +76,13 @@ df_test_processed.to_csv("OTU_MIP_test.csv", index=False)
 #         taxnomy_group='sub PCA',
 #         )
 # df_single_processed.to_csv("OTU_MIP_single.csv", index=False)
+
+
+# --- Option 5: single database (8 taxomony) without external scaler ---
+df1 = pd.read_csv("example_input_files/for_preprocess_8_taxonomy.csv")
+df_single_processed = MIPMLP.preprocess(
+       df1,
+       taxnomy_group='sub PCA',
+       plot=True
+       )
+df_single_processed.to_csv("OTU_MIP_single_8.csv", index=False)
