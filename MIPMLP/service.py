@@ -9,7 +9,7 @@ It initializes the data processing class, sets parameters, and performs optional
 
 # Import data handling and plotting utilities
 def preprocess(df, tag=None, taxonomy_level=7, taxnomy_group='mean', epsilon=0.1, normalization='log', z_scoring='No', norm_after_rel='No', pca=(0, 'PCA'),
-               rare_bacteria_threshold=0.01, plot=False, df_test=None, external_sub_pca=None, external_pca=None):
+               rare_bacteria_threshold=0.01, plot=False, df_test=None, external_sub_pca=None, external_pca=None,drop_tax_prefix=True):
     """
     Preprocess OTU and mapping data for downstream analysis.
 
@@ -45,7 +45,8 @@ def preprocess(df, tag=None, taxonomy_level=7, taxnomy_group='mean', epsilon=0.1
         'pca': pca,
         'rare_bacteria_threshold': rare_bacteria_threshold,
         'external_sub_pca': external_sub_pca,
-        'external_pca': external_pca
+        'external_pca': external_pca,
+        'drop_tax_prefix': drop_tax_prefix
     }
 
     # Initialize the OTU and mapping file processor

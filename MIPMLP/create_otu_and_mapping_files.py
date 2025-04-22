@@ -60,7 +60,8 @@ class CreateOtuAndMappingFiles(object):   # Class to manage OTU and mapping data
         self.external_pca = preprocess_params.get("external_pca", None)
 
         if self.otu_features_test_df is not None:
-            result = preprocess_data(self.otu_features_df,
+            result = preprocess_data(
+                                     self.otu_features_df,
                                      preprocess_params,
                                      self.tags_df if self.tags else None,
                                      data_test=self.otu_features_test_df

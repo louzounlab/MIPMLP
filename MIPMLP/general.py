@@ -2,7 +2,7 @@ import pandas as pd
 from sklearn.decomposition import PCA
 
 """
-Applies Principal Component Analysis (PCA) to reduce the dimensionality of the input data.
+Applies PCA to reduce the dimensionality of the input data.
 
 Parameters:
 - data: DataFrame of input features.

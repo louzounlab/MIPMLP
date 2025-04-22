@@ -83,6 +83,8 @@ df1 = pd.read_csv("example_input_files/for_preprocess_8_taxonomy.csv")
 df_single_processed = MIPMLP.preprocess(
        df1,
        taxnomy_group='sub PCA',
+       taxonomy_level=8,
+       drop_tax_prefix=False,
        plot=True
        )
 df_single_processed.to_csv("OTU_MIP_single_8.csv", index=False)

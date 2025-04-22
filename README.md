@@ -69,8 +69,8 @@ df_train_processed, df_test_processed = MIPMLP.preprocess(
     plot=False,   # default: False, options: True, False
     df_test=df_test_df,  # optional: test set to be preprocessed with same parameters
     external_sub_pca=sub_pca_model,  # optional: use pre-fitted SubPCA model instead of fitting
-    external_pca=pca_model  # optional: use pre-fitted PCA model instead of fitting
-}
+    external_pca=pca_model,  # optional: use pre-fitted PCA model instead of fitting
+    drop_tax_prefix=True   # default: True, options: True, False
 )
 ```
 
@@ -103,6 +103,9 @@ If both train and test are provided, both are returned.
 
 
 <img src="https://drive.google.com/uc?export=view&id=1UPdJfUs_ZhuWFaHmTGP26gD3i2NFQCq6" alt="drawing" width="400" height="400"/>
+
+(⚠️ If `drop_tax_prefix = True` (default), taxonomy prefixes such as k__, p__, g__ will be removed from the feature names. Set this to False if you wish to retain the full taxonomy format in the output table.)
+
 
 If `plot = True` , a histogram showing the percentage of samples in which each bacterium appears.  
 (⚠️ If `pca` is enabled, `plot=True` is not recommended. The visualization will not reflect the original features post-dimensionality reduction.)

@@ -10,12 +10,6 @@ import pickle
 taxonomy_col = 'taxonomy'
 min_letter_value = 'a'
 
-states = {1: "Creating otu And Mapping Files",
-          2:"Perform taxonomy grouping",
-          3:'Perform normalization',
-          4:'dimension reduction',
-          5:"plotting diversities"}
-
 
 def preprocess_data(data, dict_params: dict, map_file=None, data_test=None):
     """
@@ -47,6 +41,8 @@ def preprocess_data(data, dict_params: dict, map_file=None, data_test=None):
     correlation_removal_threshold = dict_params.get('correlation_threshold', None)
     rare_bacteria_threshold = dict_params.get('rare_bacteria_threshold', None)
     pca = dict_params['pca']
+    drop_tax_prefix = dict_params['drop_tax_prefix']
+
 
     # Convert data to numeric DataFrame and limit taxonomy to 8 levels
     as_data_frame = pd.DataFrame(data.T).apply(pd.to_numeric, errors='ignore').copy()  # data frame of OTUs
@@ -172,13 +168,15 @@ def preprocess_data(data, dict_params: dict, map_file=None, data_test=None):
             # Reconstruct DataFrame with original index
             test_data_frame = pd.DataFrame(test_data_frame, index=original_test_index)
 
-        as_data_frame = clean_column_names(as_data_frame)
-        as_data_frame_b_pca = clean_column_names(as_data_frame_b_pca)
-        test_data_frame = clean_column_names(test_data_frame)
+        if drop_tax_prefix:
+            as_data_frame = clean_column_names(as_data_frame)
+            as_data_frame_b_pca = clean_column_names(as_data_frame_b_pca)
+            test_data_frame = clean_column_names(test_data_frame)
         return as_data_frame, as_data_frame_b_pca, pca_obj, bacteria, pca, test_data_frame, sub_pca
 
-    as_data_frame = clean_column_names(as_data_frame)
-    as_data_frame_b_pca = clean_column_names(as_data_frame_b_pca)
+    if drop_tax_prefix:
+        as_data_frame = clean_column_names(as_data_frame)
+        as_data_frame_b_pca = clean_column_names(as_data_frame_b_pca)
     return as_data_frame, as_data_frame_b_pca, pca_obj, bacteria, pca, None
 
 
@@ -327,7 +325,6 @@ def clean_taxonomy_names(df):
     df.index = df[taxonomy_col].str.replace(" ", "")
     df = df.drop(taxonomy_col, axis=1)
     return df
-
 
 
 
